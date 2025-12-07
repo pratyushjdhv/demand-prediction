@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+
+{% raw %}
+<div id="app">
+    <h1>Dashboard!!!</h1>
+
+    <div>
+        <label for="product-select">Select Product:</label>
+        <select id="product-select" v-model="selectedProduct" :disabled="isLoading" title="Select Product">
+            <option value="" disabled>Choose item...</option>
+            <option v-for="product in products" :key="product" :value="product">
+                {{ product }}
+            </option>
+        </select>
+
+        <button @click="getPrediction" :disabled="!selectedProduct || isLoading">
+            {{ isLoading ? 'Processing...' : 'Generate Forecast' }}
+        </button>
+    </div>
+
+    <div v-if="isLoading" style="margin: 10px 0;">
+        Model is training, please try to be a bit patient...
+    </div>
+
+    <div v-if="forecast.length > 0" style="margin: 10px 0;">
+        <strong>7-Day Total Requirement:</strong> {{ safetystock }} units
+    </div>
+
+    <hr>
+
+    <div>
+        <canvas ref="forecastChart" width="600" height="300"></canvas>
+    </div>
+
+    <div v-if="forecast.length > 0">
+        <h3>Detailed Data</h3>
+        <table border="1" cellpadding="5" cellspacing="0">
+            <thead>
+                <tr>
+                    <th>Date</th>
+                    <th>Raw Model Output</th>
+                    <th>Safety Order Qty</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr v-for="item in forecast" :key="item.date">
+                    <td>{{ item.date }}</td>
+                    <td>{{ item.raw_value }}</td>
+                    <td><strong>{{ item.safe_val }}</strong></td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endraw %}
+
+<script>
+    const { createApp } = Vue;
+
+    createApp({
+        data() {
+            return {
+                products: [],
+                selectedProduct: "",
+                forecast: [],
+                isLoading: false,
+                chartInstance: null
+            }
+        },
+        computed: {
+            safetystock() {
+                return this.forecast.reduce((sum, item) => sum + item.safe_val, 0);
+            }
+        },
+        mounted() {
+            this.fetchProducts();
+        },
+        methods: {
+            async fetchProducts() {
+                try {
+                    const response = await fetch('/get_products');
+                    this.products = await response.json();
+                } catch (error) {
+                    console.error("Error loading products:", error);
+                }
+            },
+            async getPrediction() {
+                if (!this.selectedProduct) return;
+
+                this.isLoading = true;
+                
+                try {
+                    const response = await fetch('/predict', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ product: this.selectedProduct })
+                    });
+                    
+                    const data = await response.json();
+                    this.forecast = data.forecast;
+                    
+                    // Wait for DOM update then draw chart
+                    this.$nextTick(() => {
+                        this.renderChart(data);
+                    });
+                    
+                } catch (error) {
+                    alert("Error generating forecast");
+                    console.error(error);
+                } finally {
+                    this.isLoading = false;
+                }
+            },
+            renderChart(data) {
+                const ctx = this.$refs.forecastChart.getContext('2d');
+                
+                const labels = data.forecast.map(item => item.date);
+                const rawValues = data.forecast.map(item => item.raw_value);
+                const safeValues = data.forecast.map(item => item.safe_val);
+
+                if (this.chartInstance) {
+                    this.chartInstance.destroy();
+                }
+
+                this.chartInstance = new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: labels,
+                        datasets: [{
+                            label: 'Safety Stock',
+                            data: safeValues,
+                            borderColor: 'blue',
+                            fill: false,
+                            tension: 0.1
+                        }, {
+                            label: 'Raw Prediction',
+                            data: rawValues,
+                            borderColor: 'grey',
+                            borderDash: [5, 5],
+                            fill: false
+                        }]
+                    },
+                    options: {
+                        responsive: false, 
+                        maintainAspectRatio: false
+                    }
+                });
+            }
+        }
+    }).mount('#app');
+</script>
+
+</body>
+</html>
