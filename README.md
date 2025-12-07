@@ -156,18 +156,6 @@ The system applies conservative ordering recommendations:
 - Ensures non-negative values with `np.maximum(0, ...)`
 - Prioritizes avoiding stockouts over minimizing excess inventory
 
-## Future Enhancements
-
-- [ ] Model persistence (save/load trained models)
-- [ ] Historical accuracy metrics
-- [ ] Multi-step ahead forecasting options
-- [ ] Seasonal decomposition analysis
-- [ ] A/B testing framework
-- [ ] Automated retraining pipeline
-
-## Contributing
-
-Contributions are welcome! Please feel free to submit a Pull Request.
 
 ## License
 
