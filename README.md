@@ -1,6 +1,5 @@
 # Grocery Demand Prediction System
 
-<<<<<<< HEAD
 ## What We Built
 
 A web-based demand forecasting dashboard for grocery chains that predicts 7-day product demand using LSTM neural networks. The system provides:
